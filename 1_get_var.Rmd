@@ -1,0 +1,150 @@
+---
+title: "Weather based model"
+---
+
+```{r}
+pacman::p_load(rio, tidyverse, nasapower) 
+```
+
+Base de datos de enfermedad
+
+```{r}
+disease <- import("dados_ferrugem_comum.xlsx")
+disease %>% names
+```
+
+## Dados de doença
+
+#### Qtd de valores ausentes na base bruta
+
+```{r valores_ausentes_doenca, echo=FALSE}
+# Verificacao de valores ausentes (NA e " ") em cada coluna 
+missing_values_dados_ferrugem_comum <- dados_ferrugem_comum %>%
+  dplyr::summarise_all(~sum(is.na(.) | . == "" )) %>%
+  tidyr::pivot_longer(everything(), names_to = "VARIAVEL", values_to = "QTD_VALORES_AUSENTES") %>%
+  dplyr::mutate(PERCENTUAL = round(QTD_VALORES_AUSENTES / nrow(dados_ferrugem_comum) * 100, 3))
+    
+  #%>% filter(VALORES_AUSENTES > 0) #apenas colunas com valores ausentes
+missing_values_dados_ferrugem_comum %>% DT::datatable()
+
+# Substituir celulas vazias por NA
+dados_ferrugem_comum[dados_ferrugem_comum == ""] <- NA
+```
+
+```{r recortes_doenca, echo=FALSE}
+# Variaveis de interesse
+vars_interesse <- c("SETS_season", "FIELD_growingSeason", "FIELD_locationName", "FIELD_State", "FIELD_County", "FIELD_Location", "FIELD_field_longitude", "FIELD_field_latitude", "FIELD_previousCrop", "FIELD_tillageMethod", "FIELD_elevation", "FIELD_isIrrigated", "FIELD_pipeline", "FIELD_seasonName", "FIELD_daysToHarvest", "OBS_growthStage", "OBS_numValue", "OBS_createdTime")
+
+# Safras de interesse
+safras_interesse <- c("_09")
+
+# Estagios de interesse 
+estagios_interesse <- c("Not Applicable", "R1", "R3", "R4", "R5", "R6", "V10", "V12", "V3", "V5", "V6", "V7", "V8", "VT")
+
+# Protocolos de interesse (FTNs) 
+protocolos_interesse <- c("FTN NORTH", "FTN_CTR", "FTN_NRT", "FTN_SUR", "FTNNORTE", "FTNSUBTR",
+                          "FTNSUR", "FTNTEMPA1", "FTNTEMPA2", "FTNTEMPA3", "FTNTEMPL", "GEOFTNA",
+                          "GEOFTNB", "GEOFTNM", "GEOFTNTAP", "GEOFTNTBP", "GEOFTNTMP",
+                          "PRECOZ1FS", "PRECOZ2FS", "PRECOZ3FS", "STGEOFTNA", "STGEOFTNB",
+                          "STGEOFTNM")
+
+# Base de doenca
+df_doenca <- dados_ferrugem_comum %>% 
+  # Protocolos de interesse
+  filter(SETS_setName %in% protocolos_interesse) %>% 
+  # Safras de interesse
+  filter(str_detect(SETS_season, safras_interesse) & str_detect(FIELD_growingSeason, safras_interesse)) %>%
+  # Estagios de interesse
+  filter(OBS_growthStage %in% estagios_interesse) %>% 
+  # Variaveis de interesse
+  select(all_of(vars_interesse)) %>% 
+  # Correcao dos tipos das variaveis
+  mutate(
+    data_doenca = as.Date(OBS_createdTime),
+    FIELD_elevation = as.integer(FIELD_elevation),
+    FIELD_daysToHarvest = as.integer(FIELD_daysToHarvest),
+    OBS_growthStage = as.factor(OBS_growthStage)
+  )
+
+#df_doenca %>% DT::datatable()
+
+# Salvando a base
+#write_csv(df_doenca, "df_doenca.csv")
+```
+
+
+#### Dados climáticos
+
+```{r recortes_clima, echo=FALSE}
+# Locais unicos de doenca
+#Para nao executar busca repetida no mesmo local
+df_locais <- df_doenca %>% 
+  distinct(FIELD_field_latitude, FIELD_field_longitude, data_doenca)
+
+df_locais <- na.omit(df_locais)
+
+#df_locais %>% DT::datatable()
+
+# Variaveis climaticas de interesse
+vars_climaticas <- c("TOA_SW_DWN", "ALLSKY_SFC_PAR_TOT", "WS2M", "T2M", "T2M_MAX", 
+                     "T2M_MIN", "T2M_RANGE", "QV2M", "RH2M")
+```
+
+```{r obtencao_dados_clima, echo=FALSE}
+# Conversao das coordenadas para numerico
+#x_interesse = as.numeric(df_locais$FIELD_field_longitude[-454])
+#y_interesse = as.numeric(df_locais$FIELD_field_latitude[-454])
+#data_interesse = df_locais$data_doenca[-454]
+
+df_locais <- df_locais %>% slice(1:10)
+
+x_interesse = as.numeric(df_locais$FIELD_field_longitude)
+y_interesse = as.numeric(df_locais$FIELD_field_latitude)
+data_interesse = df_locais$data_doenca
+
+dados_api = list()
+
+for(i in 1:nrow(df_locais)){
+  
+  
+  dados_api[[i]] <- get_power(
+    community = "ag",
+    temporal_api = "daily",
+    dates = c(data_interesse[i]-28, data_interesse[i]-14),
+    pars = vars_climaticas,
+    lonlat = c(x_interesse[i], y_interesse[i])
+  )
+  
+  dados_api[[i]]$ID <- seq(from=15, to=1)
+  dados_api[[i]]$DATA_REF <- data_interesse[i]
+  
+}
+
+# Unificacao das listas de output
+dados_unificados = Reduce(full_join, dados_api)
+
+# Dados climaticos
+#write_csv(dados_unificados, "df_clima.csv")
+```
+
+## Base oficial
+
+```{r, juncao_bases, echo=FALSE}
+# Organizacao da estrutura da base de dados climatologicos
+dados_clima_wider <- dados_unificados %>% 
+  select(-c(YEAR, MM, DD, DOY, YYYYMMDD )) %>% 
+  pivot_wider(
+    names_from = ID,
+    values_from = c(TOA_SW_DWN, ALLSKY_SFC_PAR_TOT, WS2M, T2M, T2M_MAX, T2M_MIN, T2M_RANGE, QV2M, RH2M)
+  )
+
+# Montagem da base de dados de interesse
+#Juncao da base de doencas e informacoes climaticas
+df_join <- df_doenca %>% 
+  left_join(dados_clima_wider, by=c("FIELD_field_latitude" = "LAT",
+                                   "FIELD_field_longitude" = "LON",
+                                   "data_doenca" = "DATA_REF"))
+df_join %>% DT::datatable()
+
+write_csv(df_join, "df_modeling_ferrugem.csv")
+```

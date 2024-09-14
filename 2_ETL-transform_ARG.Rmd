@@ -1,0 +1,246 @@
+---
+title: "ARG - Disease Modeling (Common rust)"
+subtitle: "ETL (transform)"
+author: "Hellen Paz"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+\
+
+**Objetivo:** Este relatório tem como objetivo a limpeza, estruturação e enriquecimento dos dados brutos visando transforma-los para um formato mais apropriado para as análises.
+
+\
+
+### DADOS TRANSFORMADOS {.tabset}
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# Pacotes
+library(pacman)
+p_load(dplyr)
+#Manipulacao de dados, Sumarizacoes, API dados climaticos
+#library(readxl) #Leitura de bases Excel
+
+```
+
+#### Dados da doença
+
+```{r df_doenca}
+# Base de dados bruta
+dados_brutos_doenca <- readxl::read_excel("dados_ferrugem_comum.xlsx")
+
+# Variaveis de interesse
+vars_interesse_doenca <- c("SETS_season", "SETS_season", "FIELD_growingSeason", "FIELD_locationName", "FIELD_State", "FIELD_County", "FIELD_Location", "FIELD_field_longitude", "FIELD_field_latitude", "FIELD_previousCrop", "FIELD_tillageMethod", "FIELD_elevation", "FIELD_isIrrigated", "FIELD_pipeline", 
+"FIELD_seasonName", "FIELD_daysToHarvest", "OBS_growthStage", "OBS_numValue", "OBS_createdTime")
+
+# Safras de interesse
+safras_interesse <- c("_09")
+
+# Estagios de interesse 
+estagios_interesse <- c("V8", "V10","V12", "VT", "R1", "R2" )
+# c("Not Applicable", "R1", "R3", "R4", "R5", "R6", "V10", "V12", "V3", "V5", "V6", "V7", "V8", "VT")
+
+# Protocolos de interesse (FTNs) 
+protocolos_interesse <- c("FTN NORTH", "FTN_CTR", "FTN_NRT", "FTN_SUR", "FTNNORTE", "FTNSUBTR", "FTNSUR", "FTNTEMPA1", "FTNTEMPA2", "FTNTEMPA3", "FTNTEMPL", "GEOFTNA", "GEOFTNB", "GEOFTNM", "GEOFTNTAP", "GEOFTNTBP", "GEOFTNTMP", "PRECOZ1FS", "PRECOZ2FS", "PRECOZ3FS", "STGEOFTNA", "STGEOFTNB", "STGEOFTNM")
+
+# Base de doenca
+df_doenca <- dados_brutos_doenca %>% 
+  # Protocolos de interesse
+  filter(SETS_setName %in% protocolos_interesse) %>% 
+  # Estagios de interesse
+  filter(OBS_growthStage %in% estagios_interesse) %>% 
+  # Safras de interesse
+  filter(str_detect(SETS_season, safras_interesse) & 
+           str_detect(FIELD_growingSeason, safras_interesse)) %>% 
+  # Variaveis de interesse
+  select(all_of(vars_interesse_doenca)) %>% 
+  # Correcao dos tipos das variaveis
+  mutate(
+    data_avaliacao = as.Date(OBS_createdTime),
+    FIELD_elevation = as.integer(FIELD_elevation),
+    FIELD_daysToHarvest = as.integer(FIELD_daysToHarvest),
+    OBS_growthStage = as.factor(OBS_growthStage)
+  )  
+
+df_doenca %>% DT::datatable()
+
+df_doenca %>% 
+  count(OBS_growthStage ) 
+
+df_doenca %>% 
+  ggplot() + 
+  aes(OBS_growthStage, OBS_numValue) + 
+  geom_jitter(height = .1)
+
+# Salvando a base
+#readr::write_csv(df_doenca, "df_doenca_arg.csv")
+```
+
+#### Dados climáticos (1 x 15 dias)
+
+1 janela de 15 dias
+
+```{r df_clima_diario_15dias}
+# Base de dados bruta
+df_clima_diario <- readr::read_csv("df_clima_diario_arg.csv")
+
+# Engenharia de variaveis #
+
+df_engvars_j15dias <- df_clima_diario %>%
+   group_by(LON, LAT, DATA_REF) %>%
+   summarise(
+     # Precipitacao
+     QTD_DIAS_PRECIP_MAIOR_3MM = sum(PRECTOTCORR > 3, na.rm = TRUE),
+     QTD_MM_ACUMUL = sum(PRECTOTCORR, na.rm = TRUE),
+     # Umidade
+     QTD_DIAS_UMIDREL_MAIOR_80 = sum(RH2M > 80, na.rm = TRUE),
+     QTD_DIAS_UMID_MAIOR_80 = sum(QV2M > 80, na.rm = TRUE),
+     # Temperatura
+     TEMP_MEDIA = mean(T2M, na.rm = TRUE),
+     TEMP_MEDIANA = median(T2M, na.rm = TRUE),
+     TEMP_MAX_MEDIA = mean(T2M_MAX, na.rm = TRUE),
+     TEMP_MAX_MEDIANA = median(T2M_MAX, na.rm = TRUE),
+     TEMP_MIN_MEDIA = mean(T2M_MIN, na.rm = TRUE),
+     TEMP_MIN_MEDIANA = median(T2M_MIN, na.rm = TRUE),
+     TEMP_RANGE_MEDIA = mean(T2M_RANGE, na.rm = TRUE),
+     TEMP_RANGE_MEDIANA = median(T2M_RANGE, na.rm = TRUE),
+     # Vento
+     WD2M_MEDIA = mean(WD2M, na.rm = TRUE),
+     WD2M_MEDIANA = median(WD2M, na.rm = TRUE),
+     WS2M_MEDIA = mean(WS2M, na.rm = TRUE),
+     WS2M_MEDIANA = median(WS2M, na.rm = TRUE),
+     WS2M_MAX_MEDIA = mean(WS2M_MAX, na.rm = TRUE),
+     WS2M_MAX_MEDIANA = median(WS2M_MAX, na.rm = TRUE),
+     WS2M_MIN_MEDIA = mean(WS2M_MIN, na.rm = TRUE),
+     WS2M_MIN_MEDIANA = median(WS2M_MIN, na.rm = TRUE),
+     WS2M_RANGE_MEDIA = mean(WS2M_RANGE, na.rm = TRUE),
+     WS2M_RANGE_MEDIANA = median(WS2M_RANGE, na.rm = TRUE),
+     # Evapotranspiracao
+     EVLAND_MEDIA = mean(EVLAND, na.rm = TRUE),
+     EVLAND_MEDIANA = median(EVLAND, na.rm = TRUE),
+     EVPTRNS_MEDIA = mean(EVPTRNS, na.rm = TRUE),
+     EVPTRNS_MEDIANA = median(EVPTRNS, na.rm = TRUE),
+     # Radiacao
+     ALLSKY_SFC_PAR_TOT_MEDIA = mean(ALLSKY_SFC_PAR_TOT, na.rm = TRUE),
+     ALLSKY_SFC_PAR_TOT_MEDIANA = median(ALLSKY_SFC_PAR_TOT, na.rm = TRUE),
+     # Irradiacao
+     TOA_SW_DWN_MEDIA = mean(TOA_SW_DWN, na.rm = TRUE),
+     TOA_SW_DWN_MEDIANA = median(TOA_SW_DWN, na.rm = TRUE)
+     )
+
+# Montagem da base de dados de interesse
+#Juncao da base de doencas e informacoes climaticas
+df_temp_join <- df_doenca %>% 
+  left_join(df_engvars_j15dias, by=c("FIELD_field_latitude" = "LAT",
+                                   "FIELD_field_longitude" = "LON",
+                                   "data_avaliacao" = "DATA_REF"))
+
+# Organizacao da estrutura da base de dados climatologicos
+dados_clima_wider <- df_clima_diario %>% 
+  select(-c(YEAR, MM, DD, DOY, YYYYMMDD)) %>% 
+  tidyr::pivot_wider(
+    names_from = ID,
+    values_from = c(PRECTOTCORR, TOA_SW_DWN, ALLSKY_SFC_PAR_TOT, EVLAND, EVPTRNS, RH2M, QV2M, T2M, T2M_MAX, T2M_MIN, T2M_RANGE, WD2M, WS2M, WS2M_MAX, WS2M_MIN, WS2M_RANGE)
+  )
+
+
+# Doenca + clima 15 dias (da janela e a cada dia da janela)
+df_join_j15dias <- df_temp_join %>% 
+  dplyr::left_join(dados_clima_wider, by=c("FIELD_field_latitude" = "LAT",
+                                   "FIELD_field_longitude" = "LON",
+                                   "data_avaliacao" = "DATA_REF"))
+
+# Visualizacao da base
+df_join_j15dias %>% DT::datatable()
+#readr::write_csv(df_join_j15dias, "df_modeling_j15dias_arg.csv")
+```
+
+#### Dados climáticos (3 x 5 dias)
+
+3 janelas de 5 dias
+
+```{r df_clima_diario_5dias}
+# Base de dados bruta
+df_clima_diario <- readr::read_csv("df_clima_diario_arg.csv")
+
+# Engenharia de variaveis #
+
+# Identificacao da janela que a observacao pertence
+df_clima_diario$janela <- (df_clima_diario$ID - 1) %/% 5 + 1
+  
+# Correcao tipo de variavel
+#df$data_de_referencia <- as.Date(df$data_de_referencia)
+  
+# Media das variaveis por cada janela
+df_media_j5dias <- df_clima_diario %>%
+    group_by(LAT, LON, janela, DATA_REF) %>%
+    summarize(across(starts_with(c("PRECTOTCORR", "TOA_SW_DWN", "ALLSKY_SFC_PAR_TOT", "RH2M", "QV2M", "T2M", "T2M_MAX",
+"T2M_MIN", "T2M_RANGE", "WS2M", "WD2M")), mean, na.rm = TRUE)) %>%
+    ungroup()
+
+df_media_j5dias <- df_media_j5dias %>%
+  dplyr::rename_with(.cols = c(PRECTOTCORR, TOA_SW_DWN, ALLSKY_SFC_PAR_TOT, RH2M, QV2M, T2M, T2M_MAX, T2M_MIN, T2M_RANGE, WS2M, WS2M_MAX, WS2M_MIN, WS2M_RANGE, WD2M),
+              .fn = ~ paste0(., "_MEDIA_NAJANELA")) %>%
+  select(LAT, LON, DATA_REF, janela, ends_with("_MEDIA_NAJANELA"))  # Selecionar apenas as colunas com sufixos _media e _mediana
+
+# df_media_5dias agora contém a média das variáveis para cada janela de 5 dias
+
+# Mediana das variaveis por cada janela
+df_mediana_j5dias <- df_clima_diario %>%
+    group_by(LAT, LON, janela, DATA_REF) %>%
+    summarize(across(starts_with(c("PRECTOTCORR", "TOA_SW_DWN", "ALLSKY_SFC_PAR_TOT", "RH2M", "QV2M", "T2M", "T2M_MAX",
+"T2M_MIN", "T2M_RANGE", "WS2M", "WD2M")), median, na.rm = TRUE)) %>%
+    ungroup()
+
+df_mediana_j5dias <- df_mediana_j5dias %>%
+  dplyr::rename_with(.cols = c(PRECTOTCORR, TOA_SW_DWN, ALLSKY_SFC_PAR_TOT, RH2M, QV2M, T2M, T2M_MAX, T2M_MIN, T2M_RANGE, WS2M, WS2M_MAX, WS2M_MIN, WS2M_RANGE, WD2M),
+              .fn = ~ paste0(., "_MEDIANA_NAJANELA")) %>%
+  select(LAT, LON, DATA_REF, janela, ends_with("_MEDIANA_NAJANELA"))
+
+# Juncao das medias e medianas obtidas
+df_temp_join_j5dias <- df_media_j5dias %>% 
+  left_join(df_mediana_j5dias, by=c("LAT" = "LAT",
+                                   "LON" = "LON",
+                                   "DATA_REF" = "DATA_REF",
+                                   "janela" = "janela"))
+
+# Obtencao de outras variaveis interessantes
+df_engvars_j5dias <- df_clima_diario %>%
+   group_by(LON, LAT, DATA_REF, janela) %>%
+   summarise(
+     # Precipitacao
+     QTD_DIAS_PRECIP_MAIOR_3MM_NAJANELA = sum(PRECTOTCORR > 3, na.rm = TRUE),
+     QTD_MM_ACUMUL_NAJANELA = sum(PRECTOTCORR, na.rm = TRUE),
+     # Umidade
+     QTD_DIAS_UMIDREL_MAIOR_80_NAJANELA = sum(RH2M > 80, na.rm = TRUE),
+     QTD_DIAS_UMID_MAIOR_80_NAJANELA = sum(QV2M > 80, na.rm = TRUE),
+     )
+
+#
+df_temporario <- df_engvars_j5dias %>% 
+  left_join(df_temp_join_j5dias, by=c("LAT" = "LAT",
+                                   "LON" = "LON",
+                                   "DATA_REF" = "DATA_REF",
+                                   "janela" = "janela"))
+
+# Organizacao da estrutura da base de dados climatologicos
+dados_clima_wider2 <- df_temporario %>% 
+  #select(-c(YEAR, MM, DD, DOY, YYYYMMDD)) %>% 
+  tidyr::pivot_wider(
+    names_from = janela,
+    values_from = c(QTD_DIAS_PRECIP_MAIOR_3MM_NAJANELA, QTD_MM_ACUMUL_NAJANELA, QTD_DIAS_UMIDREL_MAIOR_80_NAJANELA, QTD_DIAS_UMID_MAIOR_80_NAJANELA, PRECTOTCORR_MEDIA_NAJANELA, TOA_SW_DWN_MEDIA_NAJANELA, ALLSKY_SFC_PAR_TOT_MEDIA_NAJANELA, RH2M_MEDIA_NAJANELA, QV2M_MEDIA_NAJANELA, T2M_MEDIA_NAJANELA, T2M_MAX_MEDIA_NAJANELA, T2M_MIN_MEDIA_NAJANELA, T2M_RANGE_MEDIA_NAJANELA, WS2M_MEDIA_NAJANELA, WS2M_MAX_MEDIA_NAJANELA, WS2M_MIN_MEDIA_NAJANELA, WS2M_RANGE_MEDIA_NAJANELA, WD2M_MEDIA_NAJANELA, PRECTOTCORR_MEDIANA_NAJANELA, TOA_SW_DWN_MEDIANA_NAJANELA, ALLSKY_SFC_PAR_TOT_MEDIANA_NAJANELA, RH2M_MEDIANA_NAJANELA, QV2M_MEDIANA_NAJANELA, T2M_MEDIANA_NAJANELA, T2M_MAX_MEDIANA_NAJANELA, T2M_MIN_MEDIANA_NAJANELA, T2M_RANGE_MEDIANA_NAJANELA, WS2M_MEDIANA_NAJANELA, WS2M_MAX_MEDIANA_NAJANELA, WS2M_MIN_MEDIANA_NAJANELA, WS2M_RANGE_MEDIANA_NAJANELA, WD2M_MEDIANA_NAJANELA)
+  )
+
+# Doenca + clima 15 dias (da janela e a cada dia da janela)
+df_join_j5dias <- df_doenca %>% 
+  dplyr::left_join(dados_clima_wider2, by=c("FIELD_field_latitude" = "LAT",
+                                   "FIELD_field_longitude" = "LON",
+                                   "data_avaliacao" = "DATA_REF"))
+
+# Visualizacao da base
+df_join_j5dias %>% DT::datatable()
+#readr::write_csv(df_join_j5dias, "df_modeling_j5dias_arg.csv")
+```

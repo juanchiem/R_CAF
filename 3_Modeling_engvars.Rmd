@@ -1,0 +1,344 @@
+---
+title: "ARG - Disease Modeling (Common rust)"
+subtitle: "Modeling"
+author: "Hellen Paz"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+#
+library(caret)
+
+#
+library(reshape2)
+
+# 
+library(readr)
+
+#
+library(tidyverse)
+
+#
+library(randomForest)
+
+#
+library(ggplot2)
+
+#
+#library(viridis)
+```
+
+## CLASSIFICAÇÃO BINÁRIA {.tabset}
+
+```{r base_de_dados,  include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+# Base de dados
+df_join <- readr::read_csv("df_modeling_ferrugem.csv")
+
+# ABT
+df_modeling_bin <- df_join %>% 
+  # Binarizacao da variavel resposta
+  mutate(info_doenca = ifelse(OBS_numValue < 3, 0, 1)) %>%  
+  select(!c(SETS_season, FIELD_growingSeason, FIELD_locationName, FIELD_County, FIELD_Location, FIELD_field_longitude, FIELD_field_latitude, FIELD_State, OBS_numValue, OBS_createdTime, data_avaliacao)) 
+
+df_modeling_bin$info_doenca <- factor(df_modeling_bin$info_doenca)
+df_modeling_bin <- na.omit(df_modeling_bin)
+
+df_modeling_bin <- df_modeling_bin[-which(df_modeling_bin$FIELD_previousCrop == "Oats"),]
+
+df_individuais <- df_modeling_bin %>% select(FIELD_previousCrop, FIELD_tillageMethod, FIELD_elevation, FIELD_isIrrigated, FIELD_pipeline, FIELD_seasonName, FIELD_daysToHarvest, OBS_growthStage, QTD_DIAS_PRECIP_MAIOR_3MM, QTD_MM_ACUMUL, QTD_DIAS_UMIDREL_MAIOR_80, QTD_DIAS_UMID_MAIOR_80, TEMP_MEDIA, TEMP_MEDIANA, TEMP_MAX_MEDIA, TEMP_MAX_MEDIANA, TEMP_MIN_MEDIA, TEMP_MIN_MEDIANA, TEMP_RANGE_MEDIA, TEMP_RANGE_MEDIANA, info_doenca)
+#rm(df_join)
+```
+
+```{r particao, echo=FALSE}
+set.seed(20)
+indices_treino <- createDataPartition(df_modeling_bin$info_doenca, p=0.7, list=FALSE)
+dados_treino <- df_modeling_bin[indices_treino,]
+dados_teste <- df_modeling_bin[-indices_treino,]
+
+#
+#prop.table(table(df_modeling_bin$OBS_growthStage))
+```
+
+```{r echo=FALSE, fig.align='center'}
+prop_y_df_modeling = prop.table(table(df_modeling_bin$info_doenca))
+prop_y_df_treino = prop.table(table(dados_treino$info_doenca))
+prop_y_df_teste = prop.table(table(dados_teste$info_doenca))
+
+# Grafico de barras
+base_from <- c(rep("Geral",2), rep("Treino", 2), rep("Teste",2))
+classe_base_from <- c("Ausência", "Presença", "Ausência", "Presença", "Ausência", "Presença")
+valores_classe_base_from <- c(prop_y_df_modeling, prop_y_df_treino, prop_y_df_teste)
+dados_prop_y <- data.frame(base_from, classe_base_from, valores_classe_base_from)
+
+ggplot(dados_prop_y, aes(fill = classe_base_from, y = valores_classe_base_from, x = base_from)) + 
+    geom_bar(position = "stack", stat = "identity") +
+      ggtitle("Proporção de status da doença") +
+      theme_bw() +
+      xlab("Base de dados") + 
+      ylab("Proporção") +
+  scale_fill_discrete(name = "Status da doença")
+```
+
+```{r padronizacao, echo=FALSE}
+dados_treino[,9:185] <- dados_treino[,9:185] %>% scale()
+dados_treino[,c(3,7)] <- dados_treino[,c(3,7)] %>% scale()
+dados_treino <- dados_treino %>% select(-c(QTD_DIAS_UMID_MAIOR_80))
+
+dados_teste[,9:185] <- dados_teste[,9:185] %>% scale()
+dados_teste[,c(3,7)] <- dados_teste[,c(3,7)] %>% scale()
+dados_teste <- dados_teste %>% select(-c(QTD_DIAS_UMID_MAIOR_80))
+
+dados_treino[,9:20] <- dados_treino[,9:20] %>% scale()
+dados_treino[,c(3,7)] <- dados_treino[,c(3,7)] %>% scale()
+dados_teste[,9:20] <- dados_teste[,9:20] %>% scale()
+dados_teste[,c(3,7)] <- dados_teste[,c(3,7)] %>% scale()
+```
+
+
+### Regressão logística
+
+#### Baseline
+
+```{r rl_baseline, echo=FALSE, message=FALSE, warning=FALSE}
+mod_rl_1 <- train(info_doenca ~ ., data=dados_treino, method = "glm", family = "binomial"); mod_rl_1
+
+predicoes_reglog <- predict(mod_rl_1, newdata = dados_teste)
+medidas_reglog <- confusionMatrix(data=predicoes_reglog, reference=dados_teste$info_doenca, mode="everything", positive="1"); medidas_reglog
+
+#probabilidades <-  predict(mod_rl_1, dados_teste, type="prob")[,"1"]
+#curva_roc_reglog <- roc(dados_teste$info_doenca, probabilidades)
+```
+
+#### Tuning
+
+```{r rl_tuning, echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+# Validacao cruzada
+ctrl <- trainControl(method = 'repeatedcv', number = 5, repeats = 3, search = "random")
+
+# Treinamento
+mod_rl_tuning <- train(info_doenca ~ ., data=dados_treino, method = "glm", family = "binomial", trControl = ctrl); mod_rl_tuning
+
+
+predicoes_reglog_tuning <- predict(mod_rl_tuning, newdata = dados_teste)
+medidas_reglog_tuning <- confusionMatrix(data=predicoes_reglog_tuning, reference=dados_teste$info_doenca, mode="everything", positive="1"); medidas_reglog_tuning
+```
+
+
+### Random Forest
+
+#### Baseline
+
+```{r rf_baseline, echo=FALSE, warning=FALSE, message=FALSE}
+mod_rf_1 <- train(info_doenca ~ ., data=dados_treino, method="rf"); mod_rf_1
+#plot(mod_rf_1, main="mtry")
+varImp(mod_rf_1)
+
+predicoes_rf <- predict(mod_rf_1, newdata = dados_teste)
+medidas_rf <- confusionMatrix(data=predicoes_rf, reference=dados_teste$info_doenca, positive="1", mode="everything"); medidas_rf
+
+#curva_roc_rf <- roc(ifelse(dados_teste$info_doenca == "1", 1, 0), as.numeric(predicoes_rf))
+```
+
+#### Tuning
+
+```{r rf_tuning, echo=FALSE, warning=FALSE, message=FALSE}
+# Validacao cruzada
+ctrl <- trainControl(method = 'repeatedcv', number = 5, repeats = 3, search = "random")
+
+# grid
+grid_rf <- expand.grid(mtry = c(seq(2,20,by=2)))
+
+mod_rf_tuning <- train(info_doenca ~ ., data=dados_treino, method="rf", trControl=ctrl, tuneGrid = grid_rf); mod_rf_tuning
+
+predicoes_rf <- predict(mod_rf_tuning, newdata = dados_teste)
+medidas_rf_tu <- confusionMatrix(data=predicoes_rf, reference=dados_teste$info_doenca, positive="1", mode="everything"); medidas_rf_tu
+```
+
+
+### KNN
+
+#### Baseline
+
+```{r knn_baseline, echo=FALSE, warning=FALSE, message=FALSE}
+# treinamento
+mod_knn_1 <- train(info_doenca ~ ., data=dados_treino, method="knn"); mod_knn_1
+
+# predicao
+predicoes_knn <- predict(mod_knn_1, newdata = dados_teste)
+medidas_knn <- confusionMatrix(predicoes_knn, dados_teste$info_doenca, positive="1", mode="everything"); medidas_knn
+
+#curva_roc_knn <- roc(ifelse(dados_teste$info_doenca == "1", 1, 0), as.numeric(predicoes_knn))
+```
+
+#### Tuning
+
+```{r knn_tuning, echo=FALSE, warning=FALSE, message=FALSE}
+# Validacao cruzada
+ctrl <- trainControl(method = 'repeatedcv', number = 5, repeats = 3, search = "random")
+grid_knn <- expand.grid(k = c(seq(2,20,by=2)))
+
+mod_knn_tuning <- train(info_doenca ~ ., data=dados_treino, method="knn", trControl = ctrl, tuneGrid=grid_knn); mod_knn_tuning
+
+predicoes_knn <- predict(mod_rf_tuning, newdata = dados_teste)
+medidas_knn_tu <- confusionMatrix(data=predicoes_knn, reference=dados_teste$info_doenca, positive="1", mode="everything"); medidas_knn_tu
+```
+
+### Comparações 
+
+```{r}
+MODELO = c("Regressão Logística", "Random Forest", "KNN", "Random Forest (tu)", "KNN (tu)")
+  
+ACURACIA = c(medidas_reglog$overall['Accuracy'], medidas_rf$overall['Accuracy'], medidas_knn$overall['Accuracy'], medidas_rf_tu$overall['Accuracy'], medidas_knn_tu$overall['Accuracy'])
+  
+F1_SCORE = c(medidas_reglog$byClass['F1'], medidas_rf$byClass['F1'], medidas_knn$byClass['F1'], medidas_rf_tu$byClass['F1'], medidas_knn_tu$byClass['F1'])
+
+SENSIBILIDADE = c(medidas_reglog$byClass['Sensitivity'], medidas_rf$byClass['Sensitivity'], medidas_knn$byClass['Sensitivity'], medidas_rf_tu$byClass['Sensitivity'], medidas_knn_tu$byClass['Sensitivity'])
+  
+ESPECIFICIDADE = c(medidas_reglog$byClass['Specificity'], medidas_rf$byClass['Specificity'], medidas_knn$byClass['Specificity'], medidas_rf_tu$byClass['Specificity'], medidas_knn_tu$byClass['Specificity'])
+```
+
+
+```{r comparacoes_modelos, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+# Extrair métricas de desempenho
+metricas <- data.frame(
+  
+  MODELO,  ACURACIA, F1_SCORE, SENSIBILIDADE, ESPECIFICIDADE 
+  
+)
+
+# Melt dataframe para facilitar a plotagem do gráfico
+metricas_melted <- reshape2::melt(metricas, id.vars = "MODELO")
+
+# Plotar o gráfico de barras
+ggplot(metricas_melted, aes(x = MODELO, y = value, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  facet_wrap(~ variable, scales = "free_y") +
+  labs(title = "Comparação de Métricas de Desempenho dos Modelos",
+       x = "Modelo",
+       y = "Valor",
+       fill = "Métrica")
+```
+
+
+
+
+
+
+```{r, eval=FALSE, echo=FALSE}
+plot.roc(curva_roc_rf, col = "blue", main = "Curvas ROC para Modelos",
+     xlab = "Taxa de Falsos Positivos", ylab = "Taxa de Verdadeiros Positivos")
+plot.roc(curva_roc_reglog, col = "red", add = TRUE)
+plot.roc(curva_roc_knn, col = "green", add = TRUE)
+legend("bottomright", legend = c("Random Forest", "Regressão Logística", "KNN"),
+       col = c("blue", "red", "green"), lwd = 2)
+
+
+ curva_roc <- roc(dados_teste$info_doenca, probabilidades)
+ par(pty="s")
+ curva_roc <- roc(dados_teste$info_doenca, probabilidades, plot = TRUE, legacy.axes=TRUE)
+```
+
+
+
+
+```{r rascunho, eval=FALSE, echo=FALSE}
+
+randomForest::varImpPlot(modelo1$finalModel)
+#indice <- which(dados_teste$OBS_growthStage == "V8")[1]
+indice <- which(dados_teste$FIELD_previousCrop == "Oats")
+#dados_teste <- dados_teste[-indice,]
+predictions <- predict(modelo1, newdata=dados_teste)
+matriz_confusao <- confusionMatrix(predictions, dados_teste$info_doenca)
+precisao <- matriz_confusao$overall['Accuracy']; precisao
+recall <- matriz_confusao$byClass['Sensitivity']; recall
+roc_auc <- matriz_confusao$byClass['Area under']; print(roc_auc)
+
+
+ probabilidades <-  predict(modelo1, dados_teste, type="prob")[,"1"]
+ curva_roc <- roc(dados_teste$info_doenca, probabilidades)
+ par(pty="s")
+ curva_roc <- roc(dados_teste$info_doenca, probabilidades, plot = TRUE, legacy.axes=TRUE)
+
+plot(curva_roc, main = "curva roc", col="blue", lwd=2)
+plot.roc(curva_roc)
+ auc <- auc(curva_roc)
+ print(paste("área sob a curva roc (auc)", auc))
+ 
+ ###
+ 
+ # Carregar pacotes necessários
+library(randomForest)
+library(caret)
+
+# Suponha que você tenha um dataframe chamado dados com suas covariáveis e a variável de resposta 'nota_da_doenca'
+
+# Definir ponto de corte para transformar em binário
+ponto_de_corte <- 4  # Por exemplo, notas menores ou iguais a 4 serão consideradas como plantas doentes
+
+# Transformar a variável de resposta em binária
+dados$planta_doente <- ifelse(dados$nota_da_doenca <= ponto_de_corte, 1, 0)
+
+# Remover a variável original de resposta
+dados <- dados[, -which(names(dados) == "nota_da_doenca")]
+
+# Dividir os dados em conjunto de treinamento e teste
+set.seed(123) # Para reproduzibilidade
+amostra <- createDataPartition(dados$planta_doente, p = 0.7, list = FALSE)
+treino <- dados[amostra,]
+teste <- dados[-amostra,]
+
+# Definir o grid de hiperparâmetros para ajuste
+param_grid <- expand.grid(mtry = c(2, 4, 6), # número de variáveis a serem selecionadas em cada divisão
+                           ntree = c(500, 1000), # número de árvores na floresta
+                           nodesize = c(5, 10)) # tamanho mínimo do nó terminal
+
+# Criar o objeto de controle para a validação cruzada
+ctrl <- trainControl(method = "cv",  # validação cruzada
+                     number = 5,      # número de dobras na validação cruzada
+                     search = "grid") # usar busca em grade para ajustar os hiperparâmetros
+
+# Treinar o modelo Random Forest com seleção de características e ajuste de hiperparâmetros
+modelo_rf <- train(planta_doente ~ ., 
+                   data = treino, 
+                   method = "rf",               # método de Random Forest
+                   trControl = ctrl,           # objeto de controle
+                   tuneGrid = param_grid)      # grid de hiperparâmetros
+
+# Ver os melhores parâmetros encontrados
+print(modelo_rf$bestTune)
+
+# Fazer previsões no conjunto de teste
+previsoes <- predict(modelo_rf, teste)
+
+# Avaliar o desempenho do modelo
+matriz_confusao <- confusionMatrix(previsoes, teste$planta_doente)
+print(matriz_confusao)r31
+
+###
+
+set.seed(123)
+indices_treino <- createDataPartition(df_modeling$info_doenca, p=0.7, list=FALSE)
+dados_treino <- df_modeling[indices_treino,]
+dados_teste <- df_modeling[-indices_treino,]
+
+my_grid <- expand.grid(mtry = c(2,3,4),
+                       ntree=c(100,200,300))
+
+metodos <- c("rf", "glm", "svmRadial", "knn")
+
+
+
+modelo_bin <- train(info_doenca ~ ., data=dados_treino, method= metodos, 
+                    trControl = trainControl(method="cv", number=5),
+                    tuneGrid = list(rf=my_grid))
+modelo_bin
+
+
+
+```
+
