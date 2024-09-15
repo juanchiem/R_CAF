@@ -1,0 +1,85 @@
+---
+title: "Get data from nasapower"
+---
+
+```{r}
+pacman::p_load(rio, tidyverse, nasapower) 
+```
+
+```{r}
+dis_data <- import("disease_table.csv") %>% 
+    mutate(ratingdate = as.Date(ratingdate)) 
+  
+# dis_data <- dis_data %>% slice(1:3)
+# dis_data %>% str
+```
+
+Lat-Lon de los sitios observacionales
+
+```{r}
+dis_geo <- dis_data %>% 
+  mutate(ratingdate = as.Date(ratingdate)) %>% 
+  distinct(LAT, LON, ratingdate) %>% 
+  drop_na() 
+
+weather_vars <- c(
+  # "TOA_SW_DWN", "ALLSKY_SFC_PAR_TOT", 
+  "WS2M", "T2M", 
+  "T2M_MAX","T2M_MIN", "T2M_RANGE", 
+  # "QV2M", 
+  "PRECTOTCORR", "RH2M")
+```
+
+Realizamos query a la base de NASAPOWER
+
+```{r}
+x_interest = as.numeric(dis_geo$LON)
+y_interest = as.numeric(dis_geo$LAT)
+date_interest = dis_geo$ratingdate
+
+data_api = list()
+query_start <- 28
+query_end <- 14
+
+for(i in 1:nrow(dis_geo)){
+  
+  data_api[[i]] <- get_power(
+    community = "ag",
+    temporal_api = "daily",
+    # consideramos que desde se ven los sintomas 
+    dates = c(date_interest[i]-query_start, date_interest[i]-query_end),
+    pars = weather_vars,
+    lonlat = c(x_interest[i], y_interest[i])
+  )
+  data_api[[i]]$ID <- seq(from=15, to=1)
+  data_api[[i]]$DATA_REF <- date_interest[i]
+}
+
+# fusion list
+dat_unif = Reduce(full_join, data_api)
+dat_unif 
+```
+
+Fusionamos con datos de enfermedad
+
+```{r, join_databases, echo=FALSE}
+weather_wide <- dat_unif %>% 
+  select(-c(YEAR, MM, DD, DOY, YYYYMMDD )) #%>% 
+  # pivot_wider(
+  #   names_from = ID,
+  #   values_from = c(
+  #     # TOA_SW_DWN, ALLSKY_SFC_PAR_TOT, 
+  #     WS2M, T2M, T2M_MAX, T2M_MIN, T2M_RANGE, 
+  #     # QV2M, 
+  #     RH2M)
+  # )
+
+df_join <- dis_data %>% 
+  left_join(weather_wide, by=c("LAT" = "LAT",
+                               "LON" = "LON",
+                               "ratingdate" = "DATA_REF"))
+df_join
+# guardamos los datos en 
+ # export(df_join, "df_clima_diario_arg.csv")
+```
+

@@ -1,0 +1,79 @@
+---
+Title: "Variable engineering"
+---
+
+**Objetivo:** Este relatório tem como objetivo a limpeza, estruturação e enriquecimento dos dados brutos visando transforma-los para um formato mais apropriado para as análises.
+
+### DADOS TRANSFORMADOS {.tabset}
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+pacman::p_load(tidyverse, rio)
+```
+
+```{r}
+dis_data_full <- import("disease_table.csv") %>% 
+    mutate(ratingdate = as.Date(ratingdate))  
+```
+
+
+#### Dados climáticos (3 x 5 dias)
+
+3 windows de 5 dias
+
+```{r daily_weather_5dias}
+# Base de dados bruta
+daily_weather <- import("df_clima_diario_arg.csv")  %>% 
+  mutate(window = (ID - 1) %/% 5 + 1)
+```
+
+# Media das variaveis por cada window
+
+```{r daily_weather_5dias}
+df_5days_mean <- daily_weather %>%
+  group_by(LAT, LON, window, ratingdate) %>%
+  summarize(across(starts_with(c("PRECTOTCORR", "RH2M", "T2M", "T2M_MAX","T2M_MIN", "T2M_RANGE", "WS2M")), mean, na.rm = TRUE)) %>%
+  ungroup() %>%
+  rename_with(.cols = c(PRECTOTCORR, RH2M, T2M, T2M_MAX, T2M_MIN, T2M_RANGE, WS2M),
+              .fn = ~ paste0(., "_mean_win")) %>%
+  select(LAT, LON, ratingdate, window, ends_with("_mean_win")) %>%   
+  mutate(ratingdate = as.Date(ratingdate))  %>% 
+   tidyr::pivot_wider(
+    names_from = window,
+    values_from = matches("_win")
+  )
+df_5days_mean %>% distinct(LAT,LON,ratingdate)
+```
+
+
+```{r daily_weather_5dias}
+df_engvars_5days <- daily_weather %>%
+    group_by(LAT, LON, window, ratingdate) %>%
+   summarise(
+     # Precipitacao
+     QTD_DIAS_PRECIP_MAIOR_3MM_win = sum(PRECTOTCORR > 3, na.rm = TRUE),
+     QTD_MM_ACUMUL_win = sum(PRECTOTCORR, na.rm = TRUE),
+     # Umidade
+     QTD_DIAS_UMIDREL_MAIOR_80_win = sum(RH2M > 80, na.rm = TRUE)) %>% 
+    mutate(ratingdate = as.Date(ratingdate))  %>% 
+  tidyr::pivot_wider(
+    names_from = window,
+    values_from = matches("_win")
+  )
+df_engvars_5days %>% distinct(LAT,LON,ratingdate)
+
+```
+
+
+```{r daily_weather_5dias}
+# Juncao das medias e medianas obtidas
+df_join_5days <- dis_data %>% 
+  left_join(df_5days_mean, 
+            by=c("LAT"="LAT","LON"="LON","ratingdate" = "ratingdate")) %>% 
+  left_join(df_engvars_5days, 
+            by=c("LAT"="LAT","LON"="LON","ratingdate" = "ratingdate"))   
+  
+
+df_join_5days %>% names 
+# df_join_5days %>% export("df_modeling_5days.csv")
+```

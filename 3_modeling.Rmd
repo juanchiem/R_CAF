@@ -1,0 +1,109 @@
+---
+title: "Disease Modeling"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+pacman::p_load(tidyverse, rio, caret, randomForest, pROC)
+```
+
+### Três janelas de 5 dias
+
+```{r bases_de_dados_j5dias, include=FALSE, echo=FALSE}
+# df_j5dias <- readr::read_csv("df_modeling_j5dias_arg.csv")
+df_5days  <-import("df_modeling_5days.csv")%>%
+  # Binarizacao da variavel resposta
+  mutate(dis_severity_binary = factor(ifelse(dis_severity < 2, 0, 1)))%>%
+  relocate(dis_severity_binary)%>%select(-LAT, -LON, -dis_severity, -ratingdate)
+
+```
+
+```{r particao, echo=FALSE}
+set.seed(20)
+index_train <- createDataPartition(df_5days$dis_severity_binary, p=0.7, list=FALSE)
+train_5days <- df_5days[index_train,]%>%mutate_at(vars(contains('win')), list(~scale(.))) 
+test_5days <- df_5days[-index_train,]%>%mutate_at(vars(contains('win')), list(~scale(.))) 
+```
+
+**RL baseline**
+
+```{r rl_baseline_5d, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(20)
+# Ajuste do modelo
+lr <- train(dis_severity_binary ~ ., 
+                      data = train_5days , 
+                      method = "glm", 
+                      family = "binomial")
+varImp(lr)
+
+# Predicao com o modelo ajustado
+lr_pred <- predict(lr, newdata = test_5days[,-c(1)])
+
+# Matriz de confusao
+lr_metrics <- confusionMatrix(data = lr_pred, 
+                                 reference = test_5days$dis_severity_binary, 
+                                 mode = "everything", positive = "1")
+
+lr_metrics
+lr_prob <-  predict(lr, test_5days, type="prob")[,"1"]
+curva_roc_lr <- roc(test_5days$dis_severity_binary, lr_prob, plot=TRUE) 
+curva_roc_lr%>% 
+ggroc() +
+  labs(x = 'False-positive rate', y = 'True-positive rate') +
+  annotate('text', x = .5, y = .5, label = paste0('AUC: ',round(auc(curva_roc_lr), digits = 2)))
+```
+
+**RF baseline**
+
+```{r rf_baseline_5d, echo=FALSE, warning=FALSE, message=FALSE}
+set.seed(20)
+rf <- train(dis_severity_binary ~ ., 
+               data = train_5days, 
+               method = "rf"); rf 
+
+plot(rf , main="mtry")
+varImp(rf)
+
+rf_pred <- predict(rf, newdata = test_5days)
+rf_metrics <- confusionMatrix(data = rf_pred, reference=test_5days$dis_severity_binary, positive="1", mode="everything")
+rf_metrics
+
+curva_roc_rf <- roc(ifelse(test_5days$dis_severity_binary == "1", 1, 0), as.numeric(rf_pred))
+
+curva_roc_rf%>% 
+ggroc() +
+  labs(x = 'False-positive rate', y = 'True-positive rate') +
+  annotate('text', x = .5, y = .5, label = paste0('AUC: ',round(auc(curva_roc_rf), digits = 2)))
+
+```
+
+##### Comparações
+
+```{r}
+MODEL = c("RL_5",  "RF_5")
+ACCURACY = c(lr_metrics$overall['Accuracy'], rf_metrics$overall['Accuracy'])
+F1 = c(lr_metrics$byClass['F1'], rf_metrics$byClass['F1'])
+SENSITIVITY = c(lr_metrics$byClass['Sensitivity'],rf_metrics$byClass['Sensitivity'])
+SPECIFICITY = c(lr_metrics$byClass['Specificity'], rf_metrics$byClass['Specificity'])
+```
+
+
+```{r comparacoes_modelos, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+# Extrair métricas de desempenho
+metrics <- data.frame(
+  MODEL,  ACCURACY, F1, SENSITIVITY, SPECIFICITY)
+
+# Melt dataframe para facilitar a plotagem do gráfico
+ metrics %>% 
+   pivot_longer(-MODEL)%>%
+   ggplot(aes(x = MODEL, y = value, fill = name)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  facet_wrap(~ name, scales = "free_y") +
+  labs(title = "Comparação de Métricas de Desempenho dos Modelos",
+       x = "Modelo",
+       y = "Valor",
+       fill = "Métrica")
+```
