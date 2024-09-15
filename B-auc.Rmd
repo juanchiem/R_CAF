@@ -1,0 +1,108 @@
+# AUDPC
+
+Area bajo la curva de progreso de la enfermedad
+
+```{r}
+# install.packages("pacman")
+pacman::p_load(tidyverse, epifitter)
+```
+
+
+```{r}
+# https://docs.google.com/spreadsheets/d/16FUAtd-u50sU2si0Ot7j9Ueou7qwlGt5t9NkAdKwlBM/edit#gid=711854399
+t=c(10,20,29,40) 
+sev=c(2.3,	5.6,	16.1,	23.6)
+AUDPC(t, sev, y_proportion = FALSE)
+```
+
+Aplicación a un caso real
+
+```{r}
+load("data.RData")
+```
+
+Dataset `canola` 
+
+Experimento de canola conducido en Balcarce, donde fueron testeados 10 fungicidas (mas un control sin protección con fungicida) con 3 bloques en el cual se registró el progreso de la incidencia de manchas foliares de Phoma lingam a través del tiempo (tiempo térmico desde la detección de la primera mancha)
+
+
+```{r}
+canola <- rio::import("canola.csv")
+
+canola %>% janitor::tabyl(tt, trt, bk)
+
+canola %>% 
+  ggplot()+ 
+  aes(x=tt, y=inc)+ 
+  geom_line()+
+  facet_wrap("par")
+```
+
+Calcularemos un valor de AUC por parcela con auxilio de las funciones `group_by` y `summarize` 
+
+```{r}
+canola %>%
+  group_by(trt,bk) %>%
+  summarize(auc = AUDPC(time = tt, 
+                        y = inc, 
+                        y_proportion = FALSE, 
+                        type = "absolute")) %>% 
+  ungroup %>% 
+  mutate_at(vars(trt, bk), as.factor)-> can_auc
+```
+
+```{r}
+can_auc %>% 
+  ggplot()+
+  aes(y=auc,x=trt)+
+  geom_point()
+```
+
+Model fitting 
+
+```{r}
+pacman::p_load(emmeans, multcomp, scales)
+mod_canola <- lm(auc ~ trt + bk, data = can_auc)
+```
+
+Estimamos las medias ajustadas por el modelo
+
+```{r}
+em <- emmeans(mod_canola, ~trt, type = "response")
+```
+
+Hacemos las comparaciones multiples segun test de Tukey
+
+```{r}
+res <- cld(em, 
+           Letters = letters, 
+           alpha = .05, 
+           reversed = F) 
+res
+```
+
+```{r}
+plot(res, alpha =0.5)
+```
+
+
+```{r}
+plot(res, alpha =0.5) + 
+  geom_point(data = can_auc, 
+             aes(x = auc, 
+                 y = trt), pch=21, 
+             position=position_dodge(width=1), size = 2) +
+  geom_text(data = res, angle=90, vjust=-0.7,
+            aes(x = emmean,
+                y = trt,
+                label = .group),
+            size = 4)+
+  labs(x="AUC incidencia de maculas", 
+       y = "Tratamiento") +   
+  coord_flip()
+```
+
+
+```{r}
+```
+
