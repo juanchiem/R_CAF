@@ -27,4 +27,4 @@ Recursos:
 - https://www.nature.com/articles/s41598-023-44338-6#Sec7
 - https://repositorio.inta.gob.ar/xmlui/bitstream/handle/20.500.12123/17630/INTA_CR_LaPampa
 - https://ohioline.osu.edu/factsheet/plpath-cer-03
-- SanLuis_EEAAnguil_CorroMolas_A._Evoluci%c3%b3n%20diaria%20de%20los%20valores%20predichos%20probabil%c3%adsticos%20de%20liberaciones%20severas%202023-2024.pdf?sequence=4&isAllowed=y
+- https://link.springer.com/content/pdf/10.1007/s13313-019-00655-x.pdf 
