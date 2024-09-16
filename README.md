@@ -20,3 +20,8 @@ Abrir R Studio y correr el siguiente codigo en la consola
 ```         
 usethis::use_course("https://bit.ly/4eph38o", destdir = getwd())
 ```
+
+Recursos: 
+- https://r4pde.net/
+- https://www.open-pde.info/index.html
+- https://www.nature.com/articles/s41598-023-44338-6#Sec7
