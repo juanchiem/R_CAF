@@ -56,9 +56,7 @@ La sensibilidad mide la capacidad de un modelo para identificar correctamente a 
 La especificidad mide la capacidad un modelo para identificar correctamente a los **verdaderos negativos** (es decir, los cultivos que realmente no tienen la enfermedad). Es la proporción de verdaderos negativos entre todos los lotes que no están enfermos.
 
 - **Fórmula**:
-  \[
-  \text{Especificidad} = \frac{\text{Verdaderos negativos}}{\text{Verdaderos negativos} + \text{Falsos positivos}}
-  \]
+  $\text{Especificidad} = \frac{\text{Verdaderos negativos}}{\text{Verdaderos negativos} + \text{Falsos positivos}}$
 
 - **Interpretación**:
 
