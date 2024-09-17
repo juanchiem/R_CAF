@@ -41,7 +41,7 @@ La sensibilidad mide la capacidad de un modelo para identificar correctamente a 
 
 - **Fórmula**:
   
-  \text{Sensibilidad} = \frac{\text{Verdaderos positivos}}{\text{Verdaderos positivos} + \text{Falsos negativos}}
+  $\text{Sensibilidad} = \frac{\text{Verdaderos positivos}}{\text{Verdaderos positivos} + \text{Falsos negativos}}$
   
 
 - **Interpretación**:
