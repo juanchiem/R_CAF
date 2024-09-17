@@ -40,9 +40,9 @@ usethis::use_course("https://bit.ly/4eph38o", destdir = getwd())
 La sensibilidad mide la capacidad de un modelo para identificar correctamente a los **verdaderos positivos** (es decir, cultivos que realmente tienen la enfermedad). Es la proporción de verdaderos positivos entre todos los lotes que en realidad están enfermos.
 
 - **Fórmula**:
-  \[
+  
   \text{Sensibilidad} = \frac{\text{Verdaderos positivos}}{\text{Verdaderos positivos} + \text{Falsos negativos}}
-  \]
+  
 
 - **Interpretación**:
   
