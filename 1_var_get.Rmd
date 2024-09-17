@@ -7,10 +7,10 @@ pacman::p_load(rio, tidyverse, nasapower)
 ```
 
 ```{r}
-dis_data <- import("disease_table.csv") %>% 
-    mutate(ratingdate = as.Date(ratingdate)) 
+dis_data <- import("dis_table.csv") %>% 
+    mutate(rating_date = as.Date(rating_date)) 
   
-# dis_data <- dis_data %>% slice(1:3)
+dis_data <- dis_data %>% slice(1:100)
 # dis_data %>% str
 ```
 
@@ -18,14 +18,13 @@ Lat-Lon de los sitios observacionales
 
 ```{r}
 dis_geo <- dis_data %>% 
-  mutate(ratingdate = as.Date(ratingdate)) %>% 
-  distinct(LAT, LON, ratingdate) %>% 
+  distinct(LAT, LON, rating_date) %>% 
   drop_na() 
 
 weather_vars <- c(
   # "TOA_SW_DWN", "ALLSKY_SFC_PAR_TOT", 
   "WS2M", "T2M", 
-  "T2M_MAX","T2M_MIN", "T2M_RANGE", 
+  "T2M_MAX","T2M_MIN", 
   # "QV2M", 
   "PRECTOTCORR", "RH2M")
 ```
@@ -35,7 +34,7 @@ Realizamos query a la base de NASAPOWER
 ```{r}
 x_interest = as.numeric(dis_geo$LON)
 y_interest = as.numeric(dis_geo$LAT)
-date_interest = dis_geo$ratingdate
+date_interest = dis_geo$rating_date
 
 data_api = list()
 query_start <- 28
@@ -77,9 +76,9 @@ weather_wide <- dat_unif %>%
 df_join <- dis_data %>% 
   left_join(weather_wide, by=c("LAT" = "LAT",
                                "LON" = "LON",
-                               "ratingdate" = "DATA_REF"))
+                               "rating_date" = "DATA_REF"))
 df_join
 # guardamos los datos en 
- # export(df_join, "df_clima_diario_arg.csv")
+# export(df_join, "df_clima_diario_arg.csv")
 ```
 

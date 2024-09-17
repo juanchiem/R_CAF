@@ -12,8 +12,9 @@ pacman::p_load(tidyverse, rio)
 ```
 
 ```{r}
-dis_data_full <- import("disease_table.csv") %>% 
-    mutate(ratingdate = as.Date(ratingdate))  
+dis_data_full <-  import("dis_table.csv") %>% 
+  mutate(rating_date = as.Date(rating_date)) %>% 
+  slice(1:100)
 ```
 
 
@@ -31,37 +32,38 @@ daily_weather <- import("df_clima_diario_arg.csv")  %>%
 
 ```{r daily_weather_5dias}
 df_5days_mean <- daily_weather %>%
-  group_by(LAT, LON, window, ratingdate) %>%
-  summarize(across(starts_with(c("PRECTOTCORR", "RH2M", "T2M", "T2M_MAX","T2M_MIN", "T2M_RANGE", "WS2M")), mean, na.rm = TRUE)) %>%
+  group_by(LAT, LON, window, rating_date) %>%
+  summarize(across(starts_with(c("PRECTOTCORR", "RH2M", "T2M", "T2M_MAX","T2M_MIN", "WS2M")), 
+                   ~mean(.x, na.rm = TRUE))) %>%
   ungroup() %>%
-  rename_with(.cols = c(PRECTOTCORR, RH2M, T2M, T2M_MAX, T2M_MIN, T2M_RANGE, WS2M),
+  rename_with(.cols = c(PRECTOTCORR, RH2M, T2M, T2M_MAX, T2M_MIN, WS2M),
               .fn = ~ paste0(., "_mean_win")) %>%
-  select(LAT, LON, ratingdate, window, ends_with("_mean_win")) %>%   
-  mutate(ratingdate = as.Date(ratingdate))  %>% 
+  select(LAT, LON, rating_date, window, ends_with("_mean_win")) %>%   
+  mutate(rating_date = as.Date(rating_date))  %>% 
    tidyr::pivot_wider(
     names_from = window,
     values_from = matches("_win")
   )
-df_5days_mean %>% distinct(LAT,LON,ratingdate)
+df_5days_mean %>% names
+df_5days_mean %>% distinct(LAT,LON,rating_date)
 ```
 
 
 ```{r daily_weather_5dias}
 df_engvars_5days <- daily_weather %>%
-    group_by(LAT, LON, window, ratingdate) %>%
+    group_by(LAT, LON, window, rating_date) %>%
    summarise(
      # Precipitacao
      QTD_DIAS_PRECIP_MAIOR_3MM_win = sum(PRECTOTCORR > 3, na.rm = TRUE),
      QTD_MM_ACUMUL_win = sum(PRECTOTCORR, na.rm = TRUE),
      # Umidade
      QTD_DIAS_UMIDREL_MAIOR_80_win = sum(RH2M > 80, na.rm = TRUE)) %>% 
-    mutate(ratingdate = as.Date(ratingdate))  %>% 
+    mutate(rating_date = as.Date(rating_date))  %>% 
   tidyr::pivot_wider(
     names_from = window,
     values_from = matches("_win")
   )
-df_engvars_5days %>% distinct(LAT,LON,ratingdate)
-
+df_engvars_5days %>% distinct(LAT,LON,rating_date)
 ```
 
 
@@ -69,11 +71,10 @@ df_engvars_5days %>% distinct(LAT,LON,ratingdate)
 # Juncao das medias e medianas obtidas
 df_join_5days <- dis_data %>% 
   left_join(df_5days_mean, 
-            by=c("LAT"="LAT","LON"="LON","ratingdate" = "ratingdate")) %>% 
+            by=c("LAT"="LAT","LON"="LON","rating_date" = "rating_date")) %>% 
   left_join(df_engvars_5days, 
-            by=c("LAT"="LAT","LON"="LON","ratingdate" = "ratingdate"))   
+            by=c("LAT"="LAT","LON"="LON","rating_date" = "rating_date"))   
   
-
-df_join_5days %>% names 
+df_join_5days %>% count() 
 # df_join_5days %>% export("df_modeling_5days.csv")
 ```

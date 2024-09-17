@@ -9,16 +9,41 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 pacman::p_load(tidyverse, rio, caret, randomForest, pROC)
 ```
 
-### Três janelas de 5 dias
+### 3 ventanas de 5 dias
 
 ```{r bases_de_dados_j5dias, include=FALSE, echo=FALSE}
 # df_j5dias <- readr::read_csv("df_modeling_j5dias_arg.csv")
 df_5days  <-import("df_modeling_5days.csv")%>%
   # Binarizacao da variavel resposta
-  mutate(dis_severity_binary = factor(ifelse(dis_severity < 2, 0, 1)))%>%
-  relocate(dis_severity_binary)%>%select(-LAT, -LON, -dis_severity, -ratingdate)
+  mutate(dis_severity_binary = factor(ifelse(score < 1, 0, 1)))%>%
+  relocate(dis_severity_binary)%>%select(-LAT, -LON, -score, -rating_date)
 
+df_5days %>% count(dis_severity_binary)
 ```
+
+
+1 - via cross-validated
+
+```{r rl_tuning, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(20)
+# Parametros tunagem
+ctrl <- trainControl(method = 'repeatedcv', number = 5, repeats = 3)
+
+# Ajuste do modelo
+mod_2 <- train(dis_severity_binary ~ ., 
+               data = df_5days, 
+               method = "glm", 
+               family = "binomial", 
+               trControl = ctrl)
+
+mod_2
+
+mod_2_predicoes <- predict(mod_2, newdata = df_5days[,-c(1)])
+mod_2_medidas <- confusionMatrix(data=mod_2_predicoes, reference=dados_teste_j15dias$info_doenca, mode="everything", positive="1"); mod_2_medidas
+```
+
+
+2 - Con muchos datos se podria hacer el proceso test - train
 
 ```{r particao, echo=FALSE}
 set.seed(20)
@@ -63,6 +88,7 @@ rf <- train(dis_severity_binary ~ .,
                data = train_5days, 
                method = "rf"); rf 
 
+# cantidad de variables que va incorporando 
 plot(rf , main="mtry")
 varImp(rf)
 
@@ -106,4 +132,7 @@ metrics <- data.frame(
        x = "Modelo",
        y = "Valor",
        fill = "Métrica")
+ 
+df_5days %>% count(dis_severity_binary) 
 ```
+
