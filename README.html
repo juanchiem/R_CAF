@@ -352,11 +352,190 @@ display: none;
 </div>
 
 
-<div id="r_caf" class="section level1">
-<h1>R_CAF</h1>
-<p>Mini curso de epidemio</p>
-<p>URL = “<a href="https://github.com/juanchiem/R_CAF/archive/refs/heads/main.zip" class="uri">https://github.com/juanchiem/R_CAF/archive/refs/heads/main.zip</a>”
-usethis::use_course(URL, destdir = getwd())</p>
+<div id="r_caf-mini-curso-de-epidemio" class="section level1">
+<h1>R_CAF Mini curso de epidemio</h1>
+<ol style="list-style-type: decimal">
+<li>Análisis temporal de epidemias</li>
+</ol>
+<ul>
+<li><p>Área bajo la curva del progreso de la enfermedad</p></li>
+<li><p>Ajuste de modelos</p></li>
+</ul>
+<ol start="2" style="list-style-type: decimal">
+<li>Predicción de enfermedades según variable meteorológicas</li>
+</ol>
+<ul>
+<li><p>Creación de variables</p></li>
+<li><p>Modelo logístico</p></li>
+<li><p>Validación de modelo ajustado</p></li>
+</ul>
+<p>Abrir R Studio y correr el siguiente codigo en la consola</p>
+<pre><code>usethis::use_course(&quot;https://bit.ly/4eph38o&quot;, destdir = getwd())</code></pre>
+<div id="recursos" class="section level2">
+<h2>Recursos</h2>
+<ul>
+<li><a href="https://r4pde.net/" class="uri">https://r4pde.net/</a></li>
+<li><a href="https://www.open-pde.info/index.html" class="uri">https://www.open-pde.info/index.html</a></li>
+<li><a href="https://www.nature.com/articles/s41598-023-44338-6#Sec7" class="uri">https://www.nature.com/articles/s41598-023-44338-6#Sec7</a></li>
+<li><a href="https://repositorio.inta.gob.ar/xmlui/bitstream/handle/20.500.12123/17630/INTA_CR_LaPampa" class="uri">https://repositorio.inta.gob.ar/xmlui/bitstream/handle/20.500.12123/17630/INTA_CR_LaPampa</a></li>
+<li><a href="https://ohioline.osu.edu/factsheet/plpath-cer-03" class="uri">https://ohioline.osu.edu/factsheet/plpath-cer-03</a></li>
+<li><a href="https://link.springer.com/content/pdf/10.1007/s13313-019-00655-x.pdf" class="uri">https://link.springer.com/content/pdf/10.1007/s13313-019-00655-x.pdf</a></li>
+<li><a href="https://apsjournals.apsnet.org/doi/10.1094/PHYTO-10-22-0362-KD" class="uri">https://apsjournals.apsnet.org/doi/10.1094/PHYTO-10-22-0362-KD</a></li>
+</ul>
+</div>
+<div id="algunos-conceptos-importantes" class="section level2">
+<h2>Algunos conceptos importantes</h2>
+<p><strong>Sensibilidad</strong> y <strong>especificidad</strong> son
+dos conceptos clave en la evaluación de la precisión de pruebas
+diagnósticas o modelos predictivos, particularmente en epidemiología y
+otras ciencias de la salud. A continuación explicamos cada uno:</p>
+<div id="sensibilidad" class="section level3">
+<h3>1. <strong>Sensibilidad</strong>:</h3>
+<p>La sensibilidad mide la capacidad de un modelo para identificar
+correctamente a los <strong>verdaderos positivos</strong> (es decir,
+cultivos que realmente tienen la enfermedad). Es la proporción de
+verdaderos positivos entre todos los lotes que en realidad están
+enfermos.</p>
+<ul>
+<li><p><strong>Fórmula</strong>: <span class="math display">\[
+\text{Sensibilidad} = \frac{\text{Verdaderos
+positivos}}{\text{Verdaderos positivos} + \text{Falsos negativos}}
+\]</span></p></li>
+<li><p><strong>Interpretación</strong>:</p>
+<ul>
+<li><p>Una <strong>alta sensibilidad</strong> significa que el modelo es
+eficaz para detectar la presencia de la enfermedad o la condicion. Es
+útil cuando es importante minimizar los <strong>falsos
+negativos</strong> (casos que tienen la enfermedad o condicion favorable
+para desarrollarla, pero la prueba no la detecta).</p></li>
+<li><p>Ejemplo: En la protección de cultivos, un modelo con alta
+sensibilidad detectaría la mayoría de las infecciones reales, incluso si
+algunas veces da falsas alarmas. (ej: fusariosis de la espiga en
+cereales de invierno)</p></li>
+</ul></li>
+</ul>
+</div>
+<div id="especificidad" class="section level3">
+<h3>2. <strong>Especificidad</strong>:</h3>
+<p>La especificidad mide la capacidad un modelo para identificar
+correctamente a los <strong>verdaderos negativos</strong> (es decir, los
+cultivos que realmente no tienen la enfermedad). Es la proporción de
+verdaderos negativos entre todos los lotes que no están enfermos.</p>
+<ul>
+<li><p><strong>Fórmula</strong>: <span class="math display">\[
+\text{Especificidad} = \frac{\text{Verdaderos
+negativos}}{\text{Verdaderos negativos} + \text{Falsos positivos}}
+\]</span></p></li>
+<li><p><strong>Interpretación</strong>:</p>
+<ul>
+<li><p>Una <strong>alta especificidad</strong> significa que la prueba o
+modelo es eficaz para detectar la ausencia de la enfermedad. Es útil
+cuando es importante minimizar los <strong>falsos positivos</strong>
+(casos donde se diagnostica la enfermedad, pero en realidad no está
+presente).</p></li>
+<li><p>Ejemplo: En la protección de cultivos, un modelo con alta
+especificidad evitaría falsas alarmas, prediciendo correctamente que no
+habrá una epidemia de enfermedad en condiciones normales. (ej:
+enfermedades fisiologicas en cebada variedad Montoya)</p></li>
+</ul></li>
+</ul>
+</div>
+<div id="relación-entre-sensibilidad-y-especificidad" class="section level3">
+<h3>Relación entre Sensibilidad y Especificidad:</h3>
+<ul>
+<li>Generalmente, hay un <strong>compromiso</strong> entre sensibilidad
+y especificidad. Aumentar la sensibilidad puede disminuir la
+especificidad y viceversa.</li>
+<li>Un modelo ideal tendría tanto alta sensibilidad como alta
+especificidad, lo que significa que sería capaz de detectar todas las
+enfermedades verdaderas y evitar falsos diagnósticos.</li>
+</ul>
+</div>
+<div id="ejemplo-práctico" class="section level3">
+<h3>Ejemplo práctico:</h3>
+<p>En un sistema de alerta para una enfermedad de cultivo:</p>
+<ul>
+<li><p><strong>Alta sensibilidad</strong>: Detecta cualquier condicion
+favorable para una enfermedad en cuestión, asegurando que no se pierdan
+epidemias, pero puede generar falsas alarmas.</p></li>
+<li><p><strong>Alta especificidad</strong>: Solo genera alertas cuando
+hay un riesgo real, pero podría pasar por alto pequeños brotes
+epidémicos.</p></li>
+</ul>
+<p>El <strong>AUC de la curva ROC</strong> es una medida utilizada para
+evaluar el rendimiento de un modelo de clasificación, especialmente en
+sistemas de diagnóstico o predicción, como en epidemiología o en modelos
+de manejo de enfermedades de cultivos. Vamos a desglosarlo:</p>
+</div>
+<div id="curva-roc-receiver-operating-characteristic" class="section level3">
+<h3>3. <strong>Curva ROC (Receiver Operating
+Characteristic)</strong>:</h3>
+<p>La <strong>curva ROC</strong> es un gráfico que muestra la relación
+entre la <strong>tasa de verdaderos positivos (sensibilidad)</strong> y
+la <strong>tasa de falsos positivos (1 - especificidad)</strong> a
+medida que varía el umbral de decisión del modelo.</p>
+<ul>
+<li><strong>Eje Y</strong>: Representa la <strong>sensibilidad</strong>
+o la tasa de verdaderos positivos (True Positive Rate, TPR).</li>
+<li><strong>Eje X</strong>: Representa la <strong>tasa de falsos
+positivos</strong> (False Positive Rate, FPR), que es 1 -
+especificidad.</li>
+</ul>
+<p>A medida que el umbral cambia, la curva ROC muestra cómo el modelo
+compromete entre detectar verdaderos positivos y evitar falsos
+positivos.</p>
+</div>
+<div id="auc-área-bajo-la-curva" class="section level3">
+<h3>4. <strong>AUC (Área Bajo la Curva)</strong>:</h3>
+<p>El <strong>AUC (Area Under the Curve)</strong> de la curva ROC es el
+área total bajo esa curva y proporciona una métrica de qué tan bien el
+modelo distingue entre clases (por ejemplo, enfermo/no enfermo o
+infectado/no infectado). Es un valor numérico entre 0 y 1.</p>
+<ul>
+<li><p><strong>AUC = 1</strong>: Indica que el modelo tiene un
+rendimiento perfecto, separando completamente los verdaderos positivos
+de los negativos.</p></li>
+<li><p><strong>AUC = 0.5</strong>: Indica que el modelo no tiene poder
+predictivo, equivalente a una decisión aleatoria.</p></li>
+<li><p><strong>AUC &lt; 0.5</strong>: El modelo está clasificando
+incorrectamente, peor que el azar.</p></li>
+</ul>
+</div>
+<div id="interpretación-del-auc" class="section level3">
+<h3>Interpretación del AUC:</h3>
+<ul>
+<li><p><strong>AUC cercano a 1</strong>: El modelo tiene un excelente
+desempeño, siendo capaz de distinguir muy bien entre las dos clases (por
+ejemplo, plantas infectadas y no infectadas).</p></li>
+<li><p><strong>AUC entre 0.7 y 0.9</strong>: El modelo tiene un buen
+desempeño, pero no es perfecto.</p></li>
+<li><p><strong>AUC entre 0.5 y 0.7</strong>: El modelo tiene un
+desempeño moderado.</p></li>
+<li><p><strong>AUC = 0.5</strong>: El modelo no tiene capacidad
+predictiva útil.</p></li>
+</ul>
+</div>
+<div id="aplicación-en-epidemiología-y-manejo-de-cultivos" class="section level3">
+<h3>Aplicación en epidemiología y manejo de cultivos:</h3>
+<p>En modelos de predicción de enfermedades de cultivos, un <strong>AUC
+alto</strong> significa que el sistema de predicción es eficaz para
+distinguir entre condiciones que conducirán a una epidemia y aquellas
+que no. Por ejemplo:</p>
+<ul>
+<li>Un AUC alto para un modelo de predicción de enfermedades en un
+cultivo indicaría que el modelo es capaz de predecir correctamente
+cuándo se presentarán las condiciones favorables para el brote
+epidemico.</li>
+</ul>
+</div>
+<div id="ejemplo" class="section level3">
+<h3>Ejemplo:</h3>
+<p>Supón que un modelo de predicción tiene un <strong>AUC =
+0.85</strong>. Esto significa que en el 85% de los casos, el modelo
+clasificará correctamente una planta enferma frente a una sana, lo cual
+es una buena precisión.</p>
+</div>
+</div>
 </div>
 
 
