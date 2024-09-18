@@ -26,7 +26,7 @@ usethis::use_course("https://bit.ly/4eph38o", destdir = getwd())
 - https://r4pde.net/
 - https://www.open-pde.info/index.html
 - https://www.nature.com/articles/s41598-023-44338-6#Sec7
-- https://repositorio.inta.gob.ar/xmlui/bitstream/handle/20.500.12123/17630/INTA_CR_LaPampa
+- https://www.mdpi.com/2223-7747/11/6/724
 - https://ohioline.osu.edu/factsheet/plpath-cer-03
 - https://link.springer.com/content/pdf/10.1007/s13313-019-00655-x.pdf 
 - https://apsjournals.apsnet.org/doi/10.1094/PHYTO-10-22-0362-KD
