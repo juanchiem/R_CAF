@@ -31,6 +31,7 @@ usethis::use_course("https://bit.ly/4eph38o", destdir = getwd())
 - https://link.springer.com/content/pdf/10.1007/s13313-019-00655-x.pdf 
 - https://apsjournals.apsnet.org/doi/10.1094/PHYTO-10-22-0362-KD
 - https://edelponte.shinyapps.io/epidemics/
+- https://www.juanbarrios.com/la-matriz-de-confusion-y-sus-metricas/
 
 
 ## Algunos conceptos importantes
